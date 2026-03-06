@@ -1,0 +1,19 @@
+Package: SIaceDLNM
+Type: Package
+Title: Single-Index Adaptive Cumulative Exposure Distributed Lag Non-Linear Models
+Version: 0.1.0
+Author: Tianyi Pan
+Maintainer: Tianyi Pan <tianyi.pan@uwaterloo.ca>
+Description: Fit single-index adaptive cumulative exposure distributed lag non-linear models (SIaceDLNM)
+License: GPL (>= 3)
+Encoding: UTF-8
+Imports: 
+    Rcpp (>= 1.0.14),
+    RcppEigen,
+    Matrix,
+    mgcv,
+		ggplot2,
+		dplyr
+LinkingTo: Rcpp, RcppEigen
+RoxygenNote: 7.3.2
+LazyData: true
