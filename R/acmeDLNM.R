@@ -56,7 +56,7 @@
 #' @importFrom data.table as.data.table
 #' @importFrom data.table setorder
 #' @export
-acmeDLNM <- function(formula,
+SIaceDLNM <- function(formula,
                     smooth = NULL,
                     unpen.smooth = NULL,
                     fe.varying = NULL,
