@@ -342,8 +342,8 @@ SIaceDLNM <- function(formula,
         ## interpolate = TRUE
         ## set points for boundary and auxiliary boundary
         Xsparse <- as(X, "dgCMatrix")
-        alpha_x <- Interpolate(Xsparse, c(rep(0,4), x[1], x, x[length(x)], rep(0,4)))
-        # alpha_x <- Interpolate(Xsparse, c(rep(0,4),x,rep(0,4)))
+        alpha_x <- SIaceDLNM:::Interpolate(Xsparse, c(rep(0,4), x[1], x, x[length(x)], rep(0,4)))
+        # alpha_x <- SIaceDLNM:::Interpolate(Xsparse, c(rep(0,4),x,rep(0,4)))
         xt.fit <- "interpolate"
         # if(verbose) cat("modelling exposure process takes: ",
         #                 round(difftime(Sys.time(),start,units = 'secs'), 5),
@@ -362,9 +362,9 @@ SIaceDLNM <- function(formula,
       #   start <- Sys.time()
       # }
       if(!interpolate) {
-        integral <- Integral(knots_x, knots_w, kx, kw, maxLreal, Zx, Zwnew, t+0.5, alpha_x, FALSE)
+        integral <- SIaceDLNM:::Integral(knots_x, knots_w, kx, kw, maxLreal, Zx, Zwnew, t+0.5, alpha_x, FALSE)
       } else {
-        integral <- Integral_interpolate(knots_x, knots_w, kx, kw, maxLreal, Zwnew, t+0.5, alpha_x, FALSE)
+        integral <- SIaceDLNM:::Integral_interpolate(knots_x, knots_w, kx, kw, maxLreal, Zwnew, t+0.5, alpha_x, FALSE)
       }
       # if(verbose) cat("integration takes: ",
       #                 round(difftime(Sys.time(),start,units = 'secs'), 5), "seconds. \n")
