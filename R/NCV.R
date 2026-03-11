@@ -1,12 +1,3 @@
-#' Compute NCV
-#'
-#' @param object An object.
-#' @param ... Passed to methods.
-#' @export
-NCV <- function(object, ...) {
-  UseMethod("NCV")
-}
-
 #' Title NCV for acmeDLNM_fit objects
 #'
 #' @param object object of class \code{acmeDLNM_fit}.
@@ -18,11 +9,11 @@ NCV <- function(object, ...) {
 #' @importFrom mgcv s
 #' @importFrom data.table as.data.table
 #' @importFrom data.table setorder
-#' @export
+#' @exportS3Method mDLNM::NCV
 NCV.acmeDLNM_fit <- function(object, kNCV = 0, NCV.nthreads = 1, verbose = FALSE, ...) {
-  
+
   if(verbose) cat("reconstruct the model class for cpp ... \n")
-  
+
   dat <- object$inputdata
 
 
@@ -148,7 +139,7 @@ NCV.acmeDLNM_fit <- function(object, kNCV = 0, NCV.nthreads = 1, verbose = FALSE
     DLi <- lapply(x.names.list, function(xx) {
 
       x <- sXdati[[xx]]
-      
+
       Nti <- length(y) - maxL
       if((kx.per500 > 300) || (interpolate == TRUE)) {
         # if(verbose) cat("Interpolate the exposure process. \n")
@@ -283,7 +274,7 @@ NCV.acmeDLNM_fit <- function(object, kNCV = 0, NCV.nthreads = 1, verbose = FALSE
   } else {
     NCVsXdat <- list(as.data.table(sXdat))
   }
-  
+
   nei.list <- lapply(NCVsXdat, function(NCVsXdati) {
     ni <- nrow(NCVsXdati)
     lapply(1:ni, function(ii)
@@ -436,6 +427,6 @@ NCV.acmeDLNM_fit <- function(object, kNCV = 0, NCV.nthreads = 1, verbose = FALSE
 
 
   NCVresults <- NCVacmeDLNM(mod.address, nei.list, verbose, NCV.nthreads)
-  
+
   return(NCVresults)
 }
