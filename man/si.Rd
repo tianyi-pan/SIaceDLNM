@@ -4,10 +4,12 @@
 \alias{si}
 \title{Title}
 \usage{
-si(delta, formula.mgcv, a.names.vec, sXdat, Bindex, opt = TRUE, verbose)
+si(delta, formula.mgcv, a.names.vec, sXdat, Bindex, opt = TRUE, verbose, family = "nb")
 }
 \arguments{
 \item{verbose}{}
+
+\item{family}{outcome family, \code{"nb"} (default) or \code{"gaussian"}.}
 }
 \description{
 Title

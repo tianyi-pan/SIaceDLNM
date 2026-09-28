@@ -13,11 +13,14 @@ sim(
   M,
   maxL,
   verbose,
-  con.index.init
+  con.index.init,
+  family = "nb"
 )
 }
 \arguments{
 \item{verbose}{}
+
+\item{family}{outcome family, \code{"nb"} (default) or \code{"gaussian"}.}
 }
 \description{
 Title

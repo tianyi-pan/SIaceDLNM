@@ -7,6 +7,7 @@
 #' @param theta
 #' @param maxL
 #' @param kw
+#' @param family
 #'
 #' @return
 #' @export
@@ -26,7 +27,8 @@ GenerateData <- function(fEtype, wltype, Nt = 1000, kx.per500 = 100,
                          c2 = NULL,
                          wl.set = NULL,
                          fE.set = NULL,
-                         other) {
+                         other, 
+                         family = "nb") {
 
   ## load waterloo PM2.5 data (PM25.waterloo)
   if(is.null(exposure)) data("AirPollutionWaterloo")
@@ -212,16 +214,16 @@ GenerateData <- function(fEtype, wltype, Nt = 1000, kx.per500 = 100,
   Emax <- ceiling(max(E.sim))
   Emin <- floor(min(E.sim))
 
-
+  scale <- ifelse(family == "gaussian", 5, 1)
   if(is.null(fE.set)) {
     switch (fEtype,
             cubic = {
               fEtmp <- function(E) (E-(Emin + (Emax-Emin)*0.3))*(E-(Emin + (Emax-Emin)*0.2))*(E-(Emin + (Emax-Emin)*0.9))
-              fE <- function(E) fEtmp(E) / (fEtmp(Emax)/2.5) + 2.5
+              fE <- function(E) scale * (fEtmp(E) / (fEtmp(Emax)/2.5) + 2.5)
             },
             linear = {
               fEtmp <- function(E) 0
-              fE <- function(E) (E-(Emax+Emin)/2) / ((Emax - Emin)/3.5) + 3
+              fE <- function(E) scale * ((E-(Emax+Emin)/2) / ((Emax - Emin)/3.5) + 3)
             },
             # constant = {
             #   fEtmp <- function(E) 0
@@ -229,17 +231,18 @@ GenerateData <- function(fEtype, wltype, Nt = 1000, kx.per500 = 100,
             # },
             quadratic = {
               fEtmp <- function(x){25*(dnorm(((2*((x-Emin)/(Emax-Emin)+0.18) - 1.1))))}
-              fE <- function(x) -fEtmp(x)+11
+              fE <- function(x) scale * (-fEtmp(x)+11)
             },
             simplelinear = {
               fEtmp <- function(E) 0
-              fE <- function(E) 0.1*E
+              fE <- function(E) scale * 0.1*E
             }
             )
   } else {
     fEtmp <- function(E) 0
     fE <- function(E) fE.set(E)
   }
+
 
   ## linear predictor
   eta.sim <- sapply(E.sim, fE)
@@ -249,7 +252,8 @@ GenerateData <- function(fEtype, wltype, Nt = 1000, kx.per500 = 100,
   }
 
   ## generate data
-  y.sim <- sapply(eta.sim, function(eta.) rnbinom(n = 1, size = theta, mu = exp(eta.)))
+  # cat("generate data\n")
+  y.sim <- sapply(eta.sim, function(eta.) if(family == "gaussian") rnorm(n = 1, mean = eta., sd = theta) else rnbinom(n = 1, size = theta, mu = exp(eta.)))
 
 
   return(list(y.sim = y.sim,

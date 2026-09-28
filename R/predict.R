@@ -5,6 +5,8 @@
 #' @param CI.seed random seed for sampling, default \code{123}.
 #' @param CI confidence level, default \code{0.95}.
 #' @param ...
+#' @details Predictions are on the log-mean scale for negative binomial fits
+#'   and the mean scale for Gaussian fits. 
 #'
 #' @return
 #' @importFrom mgcv s
@@ -12,6 +14,9 @@
 #' @importFrom data.table setorder
 #' @export
 predict.acmeDLNM_fit <- function(object, dat, CI.seed = 123, CI = 0.95, ...) {
+
+  family <- if(is.null(object$family)) "nb" else object$family
+  gaussian <- identical(family, "gaussian")
 
   if(missingArg(dat)) {
     if (!is.null(object$eta)) {
@@ -360,7 +365,7 @@ predict.acmeDLNM_fit <- function(object, dat, CI.seed = 123, CI = 0.95, ...) {
   #   Xoffset.original.min <- 0
   #   Xoffset <- as.vector(rep(0, nrow(sXdat)))
   # }
-  Xoffset <- object$data$offset$Xoffset
+  Xoffset <- if(gaussian) rep(0, nrow(sXdat)) else object$data$offset$Xoffset
 
 
   y <- sXdat$y
@@ -405,7 +410,8 @@ predict.acmeDLNM_fit <- function(object, dat, CI.seed = 123, CI = 0.95, ...) {
                             object$point$phi,
                             object$point$delta,
                             object$point$log_theta, object$point$log_smoothing_f, object$point$log_smoothing_w,
-                            object$point$betaR, object$point$betaF, object$point$log_smoothing)
+                            object$point$betaR, object$point$betaF, object$point$log_smoothing,
+                            gaussian = gaussian)
 
   mod.address <- mod.build$address.eigen
 

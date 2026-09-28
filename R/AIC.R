@@ -11,6 +11,9 @@
 #' @export
 AIC.acmeDLNM_fit <- function(object, verbose = FALSE, marginalAIC = FALSE) {
 
+  family <- if(is.null(object$family)) "nb" else object$family
+  gaussian <- identical(family, "gaussian")
+
   if(verbose) cat("reconstruct the model class for cpp ... \n")
 
 
@@ -357,7 +360,7 @@ AIC.acmeDLNM_fit <- function(object, verbose = FALSE, marginalAIC = FALSE) {
   #   Xoffset.original.min <- 0
   #   Xoffset <- as.vector(rep(0, nrow(sXdat)))
   # }
-  Xoffset <- object$data$offset$Xoffset
+  Xoffset <- if(gaussian) rep(0, nrow(sXdat)) else object$data$offset$Xoffset
 
 
   y <- sXdat$y
@@ -402,7 +405,8 @@ AIC.acmeDLNM_fit <- function(object, verbose = FALSE, marginalAIC = FALSE) {
                             object$point$phi,
                             object$point$delta,
                             object$point$log_theta, object$point$log_smoothing_f, object$point$log_smoothing_w,
-                            object$point$betaR, object$point$betaF, object$point$log_smoothing)
+                            object$point$betaR, object$point$betaF, object$point$log_smoothing,
+                            gaussian = gaussian)
 
   mod.address <- mod.build$address.eigen
   ad.address <- mod.build$address.cppad

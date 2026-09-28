@@ -303,7 +303,8 @@ List acmeDLNMbuild(const Eigen::VectorXd R_y,
                    double R_log_smoothing_w,
                    Eigen::VectorXd R_betaR,
                    Eigen::VectorXd R_betaF,
-                   Eigen::VectorXd R_logsmoothing) {
+                   Eigen::VectorXd R_logsmoothing,
+                   bool gaussian = false) {
 
     // convert
     Vec y = R_y.cast<Scalar>();
@@ -334,13 +335,13 @@ List acmeDLNMbuild(const Eigen::VectorXd R_y,
     Modelcppad* modelcppadobj_ptr = new Modelcppad(y, B_inner_list, knots_f, Sw_large, Sf, Dw,
                                     Xrand, Xfix, Zf, Xoffset, r, K, a, Bindex,
                                     alpha_f, phi, con_index_par, log_theta, log_smoothing_f, log_smoothing_w,
-                                    betaR, betaF, logsmoothing);
+                                    betaR, betaF, logsmoothing, gaussian);
     Rcpp::XPtr<Modelcppad> ptrcppad(modelcppadobj_ptr);
 
     Model* modelobj_ptr = new Model(R_y, R_B_inner_Eigen_list, R_knots_f, R_Sw_large, R_Sf, R_Dw,
                                 R_Xrand, R_Xfix, R_Zf, R_Xoffset, R_r, R_K, R_a, R_Bindex,
                                 R_alpha_f, R_phi, R_con_index_par, R_log_theta, R_log_smoothing_f, R_log_smoothing_w,
-                                R_betaR, R_betaF, R_logsmoothing);
+                                R_betaR, R_betaF, R_logsmoothing, gaussian);
     Rcpp::XPtr<Model> ptr(modelobj_ptr);
 
 

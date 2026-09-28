@@ -337,6 +337,7 @@ private:
   const Vec Xoffset; // offset
   
 public:
+  const bool gaussian;
   const Mat K;
   const Vec a;
   const Mat Bindex; 
@@ -486,9 +487,10 @@ public:
             Scalar log_smoothing_w_,
             Vec& betaR_,
             Vec& betaF_,
-            Vec& logsmoothing_) :
+            Vec& logsmoothing_,
+            bool gaussian_ = false) :
     y(y_), B_inner_list(B_inner_list_), knots_f(knots_f_), Sw_large(Sw_large_), Sf(Sf_), Dw(Dw_), Xrand(Xrand_), Xfix(Xfix_), Zf(Zf_), Xoffset(Xoffset_), r(r_),
-    K(K_), a(a_), Bindex(Bindex_),
+    gaussian(gaussian_), K(K_), a(a_), Bindex(Bindex_),
     alpha_f(alpha_f_), phi(phi_), con_index_par(con_index_par_), log_theta(log_theta_), log_smoothing_f(log_smoothing_f_), log_smoothing_w(log_smoothing_w_), betaR(betaR_), betaF(betaF_), logsmoothing(logsmoothing_) {
 
       n = y.size(); // sample size
@@ -549,7 +551,11 @@ public:
         Bf_matrix.row(i) = Bf;
         eta(i) = Bf.dot(alpha_f);
         eta_remaining(i) = Xfix.row(i).dot(betaF) + Xrand.row(i).dot(betaR);
-        mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+        if (gaussian) {
+          mu(i) = eta(i) + eta_remaining(i) + Xoffset(i);
+        } else {
+          mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+        }
       }
 
       // Initialize the derivative components and NegativeLogLikelihood
@@ -635,7 +641,11 @@ public:
       Bf_matrix.row(i) = Bf;
       eta(i) = Bf.dot(alpha_f);
       eta_remaining(i) = Xfix.row(i).dot(betaF) + Xrand.row(i).dot(betaR);
-      mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      if (gaussian) {
+        mu(i) = eta(i) + eta_remaining(i) + Xoffset(i);
+      } else {
+        mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      }
     }
 
     dw_dphi_mat = dw_dphi(); // d alpha_w / d phi
@@ -797,6 +807,7 @@ public:
   // 1. density function
   // d log(exponential family density) / d mu
   Vec dlogdensity_dmu () {
+    if (gaussian) return (y - mu) / (theta * theta);
     Vec out(n);
     for (int i = 0; i < n; i++) {
       out(i) = y(i) / mu(i) - (theta + y(i)) / (theta + mu(i));
@@ -805,6 +816,7 @@ public:
   }
   // d^2 log(exponential family density) / d mu^2
   Vec d2logdensity_dmudmu () {
+    if (gaussian) return Vec::Constant(n, -1.0 / (theta * theta));
     Vec out(n);
     for (int i = 0; i < n; i++) {
       out(i) = - y(i) / pow(mu(i), 2) + (theta + y(i)) / pow(theta + mu(i), 2);
@@ -828,6 +840,7 @@ public:
   }
   // d mu / d alpha_w
   Mat dmu_dw () {
+    if (gaussian) return dlogmu_dw_mat;
     Mat out(n, kw);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_dw_mat.row(i) * mu(i);
@@ -852,6 +865,7 @@ public:
   }
   // d mu / d index_par
   Mat dmu_dindex_par () {
+    if (gaussian) return dlogmu_dindex_par_mat;
     Mat out(n, mE);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_dindex_par_mat.row(i) * mu(i);
@@ -898,7 +912,7 @@ public:
         m1.row(s) = Dwphi.transpose()*tmp1;
         m1.col(s) = m1.col(s) + Dwphi*tmp1;
         Mat m2 = -1.0 * tmp1* Dw + 3.0 * tmp2 * Dwphi * Dwphi.transpose();
-        outlarge = -1.0 * m1 + m2; // or m1 - m2 or m2 - m1
+        outlarge = -1.0 * m1 + m2;
       }
       out.push_back(K.transpose() * outlarge.block(1, 1, kw-1, kw-1) * K);
     }
@@ -1012,6 +1026,7 @@ public:
   // components for K
 
   Mat K_alpha_f () {
+    if (gaussian) return Bf_matrix.transpose() * dlogdensity_dmu_vec.asDiagonal();
     // dmu_df_mat: n * kE
     // dlogdensity_dmu_vec: n * 1
     // out: kE * n
@@ -1024,6 +1039,7 @@ public:
 
 
   Mat K_betaR () {
+    if (gaussian) return Xrand.transpose() * dlogdensity_dmu_vec.asDiagonal();
     // dmu_dbetaR_mat: n * kbetaR
     // dlogdensity_dmu_vec: n * 1
     // out: kbetaR * n
@@ -1036,6 +1052,7 @@ public:
 
 
   Mat K_betaF () {
+    if (gaussian) return Xfix.transpose() * dlogdensity_dmu_vec.asDiagonal();
     // dmu_dbetaF_mat: n * kbetaF
     // dlogdensity_dmu_vec: n * 1
     // out: kbetaF * n
@@ -1047,6 +1064,7 @@ public:
   }
 
    Mat K_alpha_w () {
+    if (gaussian) return dlogmu_dw_mat.transpose() * dlogdensity_dmu_vec.asDiagonal();
     // dmu_dw_mat: n * kw
     // dlogdensity_dmu_vec: n * 1
     // out: kw * n
@@ -1085,6 +1103,14 @@ public:
   }
 
   Vec K_log_theta () {
+    if (gaussian) {
+      Vec out(n);
+      for (int i = 0; i < n; i++) {
+        Scalar residual = y(i) - mu(i);
+        out(i) = residual * residual / (theta * theta) - 1.0;
+      }
+      return out;
+    }
     // out: n * 1. DO NOT FORGET TO TRANSPOSE WHEN USING
     Vec out(n);
     for (int i = 0; i < n; i++) {
@@ -1096,6 +1122,7 @@ public:
 
   // *** Hessian ***
   Mat he_alpha_f () {
+    if (gaussian) return (Bf_matrix.transpose() * Bf_matrix) / (theta * theta) + smoothing_f * Sf;
     Mat out1(kE, kE);
     Mat out2(kE, kE);
     out1.setZero();
@@ -1122,6 +1149,16 @@ public:
 
 
   Mat he_betaR () {
+    if (gaussian) {
+      Mat out = (Xrand.transpose() * Xrand) / (theta * theta);
+      int begin = 0;
+      for (int i = 0; i < p; i++) {
+        int ki = static_cast<int>(CppAD::Value(r(i)));
+        for (int j = 0; j < ki; j++) out(begin + j, begin + j) += smoothing(i);
+        begin += ki;
+      }
+      return out;
+    }
     Mat out1(kbetaR, kbetaR);
     Mat out2(kbetaR, kbetaR);
     Mat Ones(kbetaR, kbetaR); // identity matrix with diagonal smoothing
@@ -1156,6 +1193,7 @@ public:
   // }
 
   Mat he_betaF () {
+    if (gaussian) return (Xfix.transpose() * Xfix) / (theta * theta);
     Mat out1(kbetaF, kbetaF);
     Mat out2(kbetaF, kbetaF);
     out1.setZero();
@@ -1168,6 +1206,7 @@ public:
   }
 
   Mat he_alpha_w () {
+    if (gaussian) return I_alpha_w() + smoothing_w * Sw_large;
     Mat out1(kw, kw);
     Mat out2(kw, kw);
     out1.setZero();
@@ -1180,6 +1219,14 @@ public:
   }
 
   Mat I_alpha_w () {
+    if (gaussian) {
+      Mat out = (dmu_dw_mat.transpose() * dmu_dw_mat) / (theta * theta);
+      for (int i = 0; i < n; i++) {
+        Scalar eta_second = BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f);
+        out -= dlogdensity_dmu_vec(i) * eta_second * B_inner.row(i).transpose() * B_inner.row(i);
+      }
+      return out;
+    }
     Mat out1(kw, kw);
     Mat out2(kw, kw);
     out1.setZero();
@@ -1223,6 +1270,16 @@ public:
   
 
   Mat he_index_par () {
+    if (gaussian) {
+      Mat out = (dmu_dindex_par_mat.transpose() * dmu_dindex_par_mat) / (theta * theta);
+      Vec dE(mE);
+      for (int i = 0; i < n; i++) {
+        for (int j = 0; j < mE; j++) dE(j) = B_inner_list.at(j).row(i).dot(alpha_w_C);
+        Scalar eta_second = BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f);
+        out -= dlogdensity_dmu_vec(i) * eta_second * dE * dE.transpose();
+      }
+      return out;
+    }
     
     Mat out1(mE, mE);
     Mat out2(mE, mE);
@@ -1264,6 +1321,13 @@ public:
 
 
   Mat he_alpha_f_alpha_w () {
+    if (gaussian) {
+      Mat out = (Bf_matrix.transpose() * dmu_dw_mat) / (theta * theta);
+      for (int i = 0; i < n; i++) {
+        out -= dlogdensity_dmu_vec(i) * BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i);
+      }
+      return out;
+    }
     Mat out1(kE, kw);
     Mat out2(kE, kw);
     out1.setZero();
@@ -1281,6 +1345,16 @@ public:
   }
 
   Mat he_alpha_f_index_par () {
+    if (gaussian) {
+      Mat out = (Bf_matrix.transpose() * dmu_dindex_par_mat) / (theta * theta);
+      for (int i = 0; i < n; i++) {
+        Vec Bf1st = BsplinevecCon1st(E(i), knots_f, 4, Zf);
+        for (int j = 0; j < mE; j++) {
+          out.col(j) -= dlogdensity_dmu_vec(i) * Bf1st * (B_inner_list.at(j).row(i).dot(alpha_w_C));
+        }
+      }
+      return out;
+    }
     Mat out1(kE, mE);
     Mat out2(kE, mE);
     Mat out_mat(kE, mE);
@@ -1306,6 +1380,7 @@ public:
   }
 
   Mat he_alpha_f_betaF () {
+    if (gaussian) return (Bf_matrix.transpose() * Xfix) / (theta * theta);
     Mat out1(kE, kbetaF);
     Mat out2(kE, kbetaF);
     out1.setZero();
@@ -1317,6 +1392,7 @@ public:
     return - out1 - out2;
   }
   Mat he_alpha_f_betaR () {
+    if (gaussian) return (Bf_matrix.transpose() * Xrand) / (theta * theta);
     Mat out1(kE, kbetaR);
     Mat out2(kE, kbetaR);
     out1.setZero();
@@ -1328,6 +1404,7 @@ public:
     return - out1 - out2;
   }
   Mat he_phi_betaR () {
+    if (gaussian) return (dw_dphi_mat.transpose() * dmu_dw_mat.transpose() * Xrand) / (theta * theta);
     Mat out1(kwopt, kbetaR);
     Mat out2(kwopt, kbetaR);
     out1.setZero();
@@ -1339,6 +1416,7 @@ public:
     return - out1 - out2;
   }
   Mat he_phi_betaF () {
+    if (gaussian) return (dw_dphi_mat.transpose() * dmu_dw_mat.transpose() * Xfix) / (theta * theta);
     Mat out1(kwopt, kbetaF);
     Mat out2(kwopt, kbetaF);
     out1.setZero();
@@ -1350,6 +1428,7 @@ public:
     return - out1 - out2;
   }
   Mat he_betaR_betaF () {
+    if (gaussian) return (Xrand.transpose() * Xfix) / (theta * theta);
     Mat out1(kbetaR, kbetaF);
     Mat out2(kbetaR, kbetaF);
     out1.setZero();
@@ -1363,6 +1442,7 @@ public:
 
 
   Mat he_con_index_par_betaF () {
+    if (gaussian) return (dindex_par_dcon_index_par_mat.transpose() * dmu_dindex_par_mat.transpose() * Xfix) / (theta * theta);
     Mat out1(mE-1, kbetaF);
     Mat out2(mE-1, kbetaF);
     out1.setZero();
@@ -1378,6 +1458,19 @@ public:
 
 
   Mat he_alpha_w_index_par () {
+    if (gaussian) {
+      Mat out = (dmu_dw_mat.transpose() * dmu_dindex_par_mat) / (theta * theta);
+      for (int i = 0; i < n; i++) {
+        Scalar eta_first = BsplinevecCon1st(E(i), knots_f, 4, Zf).dot(alpha_f);
+        Scalar eta_second = BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f);
+        for (int j = 0; j < mE; j++) {
+          out.col(j) -= dlogdensity_dmu_vec(i) *
+            (B_inner_list.at(j).row(i).transpose() * eta_first +
+             B_inner.row(i).transpose() * eta_second * (B_inner_list.at(j).row(i).dot(alpha_w_C)));
+        }
+      }
+      return out;
+    }
     Mat out1(kw, mE);
     Mat out2(kw, mE);
     Mat out_mat(kw,mE);
@@ -1411,6 +1504,7 @@ public:
 
 
   Mat he_con_index_par_betaR () {
+    if (gaussian) return (dindex_par_dcon_index_par_mat.transpose() * dmu_dindex_par_mat.transpose() * Xrand) / (theta * theta);
     Mat out1(mE-1, kbetaR);
     Mat out2(mE-1, kbetaR);
     out1.setZero();
@@ -1425,6 +1519,7 @@ public:
   // for AIC
 
   Vec d2logdensity_dmudtheta () {
+    if (gaussian) return -2.0 * (y - mu) / (theta * theta * theta);
     Vec out(n);
     for (int i = 0; i < n; i++) {
       out(i) = (y(i) - mu(i)) / pow(theta+mu(i), 2);
@@ -1433,6 +1528,7 @@ public:
   }
 
   Vec he_alpha_f_log_theta () {
+    if (gaussian) return -1.0 * Bf_matrix.transpose() * d2logdensity_dmudtheta_vec * theta;
     Mat dmu_df_mat(n, kE);
     for (int i = 0; i < n; i++) {
       dmu_df_mat.row(i) = Bf_matrix.row(i) * mu(i);
@@ -1446,6 +1542,7 @@ public:
   }
 
   Vec he_betaR_log_theta () {
+    if (gaussian) return -1.0 * Xrand.transpose() * d2logdensity_dmudtheta_vec * theta;
     Mat dmu_dbetaR_mat(n, kbetaR);
     for (int i = 0; i < n; i++) {
       dmu_dbetaR_mat.row(i) = Xrand.row(i) * mu(i);
@@ -1460,6 +1557,7 @@ public:
 
 
   Vec he_betaF_log_theta () {
+    if (gaussian) return -1.0 * Xfix.transpose() * d2logdensity_dmudtheta_vec * theta;
     Mat dmu_dbetaF_mat(n, kbetaF);
     for (int i = 0; i < n; i++) {
       dmu_dbetaF_mat.row(i) = Xfix.row(i) * mu(i);
@@ -1469,6 +1567,14 @@ public:
 
 
   Scalar he_log_theta () {
+    if (gaussian) {
+      Scalar out = 0.0;
+      for (int i = 0; i < n; i++) {
+        Scalar residual = y(i) - mu(i);
+        out += 2.0 * residual * residual / (theta * theta);
+      }
+      return out;
+    }
 
     Scalar dlogdensity_dtheta_scalar = 0.0;
     for (int i = 0; i < n; i++) {

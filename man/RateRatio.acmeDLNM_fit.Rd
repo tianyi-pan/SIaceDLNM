@@ -14,3 +14,7 @@
 \description{
 Title Rate Ratio for acmeDLNM_fit objects
 }
+\details{
+Rate ratios are only defined here for negative binomial fits with
+  a log link. This method does not support Gaussian fits with an identity link.
+}

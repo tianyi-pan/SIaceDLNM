@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // acmeDLNMbuild
-List acmeDLNMbuild(const Eigen::VectorXd R_y, const List R_B_inner_list, const Eigen::VectorXd R_knots_f, const Eigen::MatrixXd R_Sw_large, const Eigen::MatrixXd R_Sf, const Eigen::MatrixXd R_Dw, const Eigen::MatrixXd R_Xrand, const Eigen::MatrixXd R_Xfix, const Eigen::MatrixXd R_Zf, const Eigen::VectorXd R_Xoffset, const Eigen::VectorXd R_r, const Eigen::MatrixXd R_K, const Eigen::VectorXd R_a, const Eigen::MatrixXd R_Bindex, Eigen::VectorXd R_alpha_f, Eigen::VectorXd R_phi, Eigen::VectorXd R_con_index_par, double R_log_theta, double R_log_smoothing_f, double R_log_smoothing_w, Eigen::VectorXd R_betaR, Eigen::VectorXd R_betaF, Eigen::VectorXd R_logsmoothing);
-RcppExport SEXP _SIaceDLNM_acmeDLNMbuild(SEXP R_ySEXP, SEXP R_B_inner_listSEXP, SEXP R_knots_fSEXP, SEXP R_Sw_largeSEXP, SEXP R_SfSEXP, SEXP R_DwSEXP, SEXP R_XrandSEXP, SEXP R_XfixSEXP, SEXP R_ZfSEXP, SEXP R_XoffsetSEXP, SEXP R_rSEXP, SEXP R_KSEXP, SEXP R_aSEXP, SEXP R_BindexSEXP, SEXP R_alpha_fSEXP, SEXP R_phiSEXP, SEXP R_con_index_parSEXP, SEXP R_log_thetaSEXP, SEXP R_log_smoothing_fSEXP, SEXP R_log_smoothing_wSEXP, SEXP R_betaRSEXP, SEXP R_betaFSEXP, SEXP R_logsmoothingSEXP) {
+List acmeDLNMbuild(const Eigen::VectorXd R_y, const List R_B_inner_list, const Eigen::VectorXd R_knots_f, const Eigen::MatrixXd R_Sw_large, const Eigen::MatrixXd R_Sf, const Eigen::MatrixXd R_Dw, const Eigen::MatrixXd R_Xrand, const Eigen::MatrixXd R_Xfix, const Eigen::MatrixXd R_Zf, const Eigen::VectorXd R_Xoffset, const Eigen::VectorXd R_r, const Eigen::MatrixXd R_K, const Eigen::VectorXd R_a, const Eigen::MatrixXd R_Bindex, Eigen::VectorXd R_alpha_f, Eigen::VectorXd R_phi, Eigen::VectorXd R_con_index_par, double R_log_theta, double R_log_smoothing_f, double R_log_smoothing_w, Eigen::VectorXd R_betaR, Eigen::VectorXd R_betaF, Eigen::VectorXd R_logsmoothing, bool gaussian);
+RcppExport SEXP _SIaceDLNM_acmeDLNMbuild(SEXP R_ySEXP, SEXP R_B_inner_listSEXP, SEXP R_knots_fSEXP, SEXP R_Sw_largeSEXP, SEXP R_SfSEXP, SEXP R_DwSEXP, SEXP R_XrandSEXP, SEXP R_XfixSEXP, SEXP R_ZfSEXP, SEXP R_XoffsetSEXP, SEXP R_rSEXP, SEXP R_KSEXP, SEXP R_aSEXP, SEXP R_BindexSEXP, SEXP R_alpha_fSEXP, SEXP R_phiSEXP, SEXP R_con_index_parSEXP, SEXP R_log_thetaSEXP, SEXP R_log_smoothing_fSEXP, SEXP R_log_smoothing_wSEXP, SEXP R_betaRSEXP, SEXP R_betaFSEXP, SEXP R_logsmoothingSEXP, SEXP gaussianSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -40,7 +40,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Eigen::VectorXd >::type R_betaR(R_betaRSEXP);
     Rcpp::traits::input_parameter< Eigen::VectorXd >::type R_betaF(R_betaFSEXP);
     Rcpp::traits::input_parameter< Eigen::VectorXd >::type R_logsmoothing(R_logsmoothingSEXP);
-    rcpp_result_gen = Rcpp::wrap(acmeDLNMbuild(R_y, R_B_inner_list, R_knots_f, R_Sw_large, R_Sf, R_Dw, R_Xrand, R_Xfix, R_Zf, R_Xoffset, R_r, R_K, R_a, R_Bindex, R_alpha_f, R_phi, R_con_index_par, R_log_theta, R_log_smoothing_f, R_log_smoothing_w, R_betaR, R_betaF, R_logsmoothing));
+    Rcpp::traits::input_parameter< bool >::type gaussian(gaussianSEXP);
+    rcpp_result_gen = Rcpp::wrap(acmeDLNMbuild(R_y, R_B_inner_list, R_knots_f, R_Sw_large, R_Sf, R_Dw, R_Xrand, R_Xfix, R_Zf, R_Xoffset, R_r, R_K, R_a, R_Bindex, R_alpha_f, R_phi, R_con_index_par, R_log_theta, R_log_smoothing_f, R_log_smoothing_w, R_betaR, R_betaF, R_logsmoothing, gaussian));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -344,7 +345,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SIaceDLNM_acmeDLNMbuild", (DL_FUNC) &_SIaceDLNM_acmeDLNMbuild, 23},
+    {"_SIaceDLNM_acmeDLNMbuild", (DL_FUNC) &_SIaceDLNM_acmeDLNMbuild, 24},
     {"_SIaceDLNM_acmeDLNMopt", (DL_FUNC) &_SIaceDLNM_acmeDLNMopt, 12},
     {"_SIaceDLNM_acmeDLNMCI", (DL_FUNC) &_SIaceDLNM_acmeDLNMCI, 7},
     {"_SIaceDLNM_ConditionalAICacmeDLNM", (DL_FUNC) &_SIaceDLNM_ConditionalAICacmeDLNM, 4},

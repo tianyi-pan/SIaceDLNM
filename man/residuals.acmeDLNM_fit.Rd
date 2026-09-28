@@ -30,6 +30,8 @@ observations is larger than nsample, default \code{1e4}.}
 }
 \value{
 a list containing the randomized quantile residuals and the plots.
+  For Gaussian fits, the quantile residuals are (y - mu) / theta, where
+  theta is the fitted standard deviation; no quantile randomization is used.
 }
 \description{
 Title Randomized Quantile Residuals

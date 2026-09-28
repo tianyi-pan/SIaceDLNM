@@ -20,3 +20,8 @@
 \description{
 Title Obtain predictions from the fitted model by acmeDLNM
 }
+\details{
+Predictions are on the log-mean scale for negative binomial fits
+  and the mean scale for Gaussian fits. Gaussian confidence intervals are
+  for the mean, and Gaussian fits use a zero offset.
+}

@@ -42,7 +42,8 @@ SIaceDLNM(
   check.BFGS = FALSE,
   maxit.LAML = 150,
   tmp.file = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  family = "nb"
 )
 }
 \arguments{
@@ -61,6 +62,9 @@ components. For example ~ z}
 
 \item{fe.cont}{the formula for time-invariant covariates in linear
 components. For example ~ z}
+
+\item{offset}{the offset formula for negative binomial outcomes. Ignored for
+Gaussian outcomes, which always use a zero offset.}
 
 \item{dat}{the data frame containing the variables.}
 
@@ -92,12 +96,14 @@ NULL}.}
 
 \item{par.start}{the starting values for BFGS in the outer optimization. If
 the argument is missing, the starting values are the fitted values from
-\code{mgcv::bam}.}
+\code{mgcv::bam}. The first parameter is log(theta), where theta is the
+negative binomial size or Gaussian standard deviation.}
 
 \item{par.fix}{the values of smoothing/dispersion parameters which is fixed
 in the outer optimization. For example, set \code{par.fix = c(10,NA,NA)}
 for fixing log(theta)=10 if the prior knowledge believes there is no
-over-dispersion.}
+over-dispersion in the negative binomial model. For Gaussian outcomes,
+fix the first parameter to the log of the desired standard deviation.}
 
 \item{upper.bound}{the upper bound of parameters in BFGS.}
 
@@ -111,8 +117,13 @@ over-dispersion.}
 \item{delta.method}{whether or not to use the delta method for CI,default
 \code{FALSE}.}
 
-\item{eta}{whether or not to report the CI for the linear predictor eta =
-log(mu), default \code{FALSE}.}
+\item{eta}{whether or not to report the CI for the linear predictor, default
+\code{FALSE}. This is log(mu) for negative binomial outcomes and mu for
+Gaussian outcomes; Gaussian intervals are for the mean.}
+
+\item{family}{outcome family: \code{"nb"} (default) for negative binomial
+outcomes with a log link, or \code{"gaussian"} for Gaussian outcomes with
+an identity link and variance theta squared.}
 
 \item{verbose}{whether or not to print the progress and diagnostic
 information, such as the gradients and function values in inner and middle

@@ -12,6 +12,8 @@
 #'   components. For example ~ z
 #' @param fe.cont the formula for time-invariant covariates in linear
 #'   components. For example ~ z
+#' @param offset the offset formula for negative binomial outcomes. Ignored for
+#'   Gaussian outcomes, which always use a zero offset.
 #' @param dat the data frame containing the variables.
 #' @param maxL the maximum lag, default 14.
 #' @param kw the dimension for B-spline for weight function, default 20.
@@ -32,11 +34,13 @@
 #'   NULL}.
 #' @param par.start the starting values for BFGS in the outer optimization. If
 #'   the argument is missing, the starting values are the fitted values from
-#'   \code{mgcv::bam}.
+#'   \code{mgcv::bam}. The first parameter is log(theta), where theta is the
+#'   negative binomial size or Gaussian standard deviation.
 #' @param par.fix the values of smoothing/dispersion parameters which is fixed
 #'   in the outer optimization. For example, set \code{par.fix = c(10,NA,NA)}
 #'   for fixing log(theta)=10 if the prior knowledge believes there is no
-#'   over-dispersion.
+#'   over-dispersion in the negative binomial model. For Gaussian outcomes,
+#'   fix the first parameter to the log of the desired standard deviation.
 #' @param upper.bound the upper bound of parameters in BFGS.
 #' @param CI the confidence level, default 0.95.
 #' @param CI.R the number of sampling in the sampling method for CI, default
@@ -44,8 +48,12 @@
 #' @param CI.seed the random seed in the sampling method for CI, default 123.
 #' @param delta.method whether or not to use the delta method for CI,default
 #'   \code{FALSE}.
-#' @param eta whether or not to report the CI for the linear predictor eta =
-#'   log(mu), default \code{FALSE}.
+#' @param eta whether or not to report the CI for the linear predictor, default
+#'   \code{FALSE}. This is log(mu) for negative binomial outcomes and mu for
+#'   Gaussian outcomes.
+#' @param family outcome family: \code{"nb"} (default) for negative binomial
+#'   outcomes with a log link, or \code{"gaussian"} for Gaussian outcomes with
+#'   an identity link and variance theta squared.
 #' @param verbose whether or not to print the progress and diagnostic
 #'   information, such as the gradients and function values in inner and middle
 #'   optimizations.
@@ -87,7 +95,12 @@ SIaceDLNM <- function(formula,
                     check.BFGS = FALSE,
                     maxit.LAML = 150,
                     tmp.file = NULL,
-                    verbose = TRUE) {
+                    verbose = TRUE,
+                    family = "nb") {
+
+  if(!is.character(family) || length(family) != 1L || is.na(family) ||
+     !family %in% c("nb", "gaussian")) stop("family must be 'nb' or 'gaussian'.")
+  gaussian <- identical(family, "gaussian")
 
   if(length(formula) != 3) stop("Incorrect formula. Please set a formula for example y~sX(t,x).")
   sXobject <- eval(formula[[3]])
@@ -533,7 +546,7 @@ SIaceDLNM <- function(formula,
   ### END following https://github.com/awstringer1/mam/blob/master/R/mam.R #######
 
   ## 2.4 offset
-  if(!is.null(offset)) {
+  if(!gaussian && !is.null(offset)) {
     Xoffset.original <- as.vector(stats::model.matrix(offset,data=sXdat)[,-1,drop=F])
     Xoffset.original.min <- min(Xoffset.original)
     Xoffset <- Xoffset.original - Xoffset.original.min
@@ -554,7 +567,7 @@ SIaceDLNM <- function(formula,
 
 
   if(missingArg(upper.bound)) upper.bound <- c(10, 20, 20)
-  lower.bound <- c(-2,-8,-8)
+  lower.bound <- c(ifelse(gaussian,-4,-2),-8,-8)
 
 
   SSf <- mgcv::smoothCon(s(E, bs = "bs", k = kE), absorb.cons = FALSE,
@@ -774,7 +787,8 @@ SIaceDLNM <- function(formula,
                                 phi.init,
                                 delta.init,
                                 log_theta.given, log_smoothing_f.given, log_smoothing_w.given,
-                                betaR.init, betaF.init, logsmoothing.given)
+                                betaR.init, betaF.init, logsmoothing.given,
+                                gaussian = gaussian)
     }
     if(verbose) cat("Done.")
     mod.build
@@ -826,11 +840,11 @@ SIaceDLNM <- function(formula,
             con.index.init <- delta.init.default
           }
           suppressWarnings(
-            sim.fit <- sim(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose, con.index.init)
+            sim.fit <- sim(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose, con.index.init, family = family)
           )
         } else {
           suppressWarnings(
-            sim.fit <- sim(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose)
+            sim.fit <- sim(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose, family = family)
           )
         }
 
@@ -841,15 +855,37 @@ SIaceDLNM <- function(formula,
 
         if(verbose) cat("delta.init.default:", delta.init.default, "\n")
 
-        par.start[1] <- max(family(mod.mgcv)$getTheta(), log(2*y.mean)) # choose a larger theta if theta from bam() is smaller than 2*mean(y). Var = mu + mu^2/theta. i.e. init. var = 1.5*mu
-        par.start[2] <- log(mod.mgcv$sp)[1]
-        par.start[3] <- 6
-        if(length(par.start) > 3) par.start[4:length(par.start)] <- log(mod.mgcv$sp)[-1]
-        if(par.start[1] > 7) par.start[1] <- 7 # do not set a huge log(theta)
-        if(par.start[2] > 11) par.start[2] <- 11 # do not set a huge log(smoothing_f)
+        if(gaussian) {
+          sigma2 <- mod.mgcv$sig2
+          if(length(sigma2) != 1L || !is.finite(sigma2) || sigma2 <= 0) {
+            stop("Gaussian initialization requires a positive finite residual variance from mgcv::bam; supply par.start explicitly.")
+          }
+          par.start[1] <- 0.5 * log(sigma2)
+          log.precision <- log(mod.mgcv$sp) - log(sigma2)
+          par.start[2] <- log.precision[1]
+          par.start[3] <- 6
+          if(length(par.start) > 3) par.start[4:length(par.start)] <- log.precision[-1]
 
-        for (i in 1:length(par.start)) {
-          if((par.start[i] > (upper.bound[i] - 1)) | (par.start[i] < lower.bound[i])) par.start[i] <- 7
+          if(par.start[1] > 7) par.start[1] <- 7
+          if(par.start[1] < -2) par.start[1] <- 0
+          
+          if(par.start[2] > 11) par.start[2] <- 11 # do not set a huge log(smoothing_f)
+          
+          for (i in 2:length(par.start)) {
+            if((par.start[i] > (upper.bound[i] - 1)) | (par.start[i] < lower.bound[i])) par.start[i] <- 7
+          }
+
+        } else {
+          par.start[1] <- max(family(mod.mgcv)$getTheta(), log(2*y.mean)) # choose a larger theta if theta from bam() is smaller than 2*mean(y). Var = mu + mu^2/theta. i.e. init. var = 1.5*mu
+          par.start[2] <- log(mod.mgcv$sp)[1]
+          par.start[3] <- 6
+          if(length(par.start) > 3) par.start[4:length(par.start)] <- log(mod.mgcv$sp)[-1]
+          if(par.start[1] > 7) par.start[1] <- 7 # do not set a huge log(theta)
+          if(par.start[2] > 11) par.start[2] <- 11 # do not set a huge log(smoothing_f)
+
+          for (i in 1:length(par.start)) {
+            if((par.start[i] > (upper.bound[i] - 1)) | (par.start[i] < lower.bound[i])) par.start[i] <- 7
+          }
         }
         if(verbose) cat("Use results from mgcv::bam with same-day exposure as the initial guess for BFGS. \n ")
       # },
@@ -1100,6 +1136,7 @@ SIaceDLNM <- function(formula,
   out$opttime <- opttime
   out$penalty <- "second"
   out$interpolate <- interpolate
+  out$family <- family
 
   ## check convergence
 

@@ -5,6 +5,7 @@
 #' @param sXdat
 #' @param opt
 #' @param verbose
+#' @param family outcome family, \code{"nb"} (default) or \code{"gaussian"}.
 #'
 #' @returns
 #' @importFrom mgcv bam
@@ -12,7 +13,9 @@
 #' @importFrom mgcv nb
 #'
 #' @examples
-si <- function(delta, formula.mgcv, a.names.vec, sXdat, Bindex, opt = TRUE, verbose) {
+si <- function(delta, formula.mgcv, a.names.vec, sXdat, Bindex, opt = TRUE, verbose, family = "nb") {
+  if(!is.character(family) || length(family) != 1L || is.na(family) ||
+     !family %in% c("nb", "gaussian")) stop("family must be 'nb' or 'gaussian'.")
   alpha <- c(1,delta)
   # kk <- sqrt(sum(alpha^2))
   kk <- as.numeric(t(alpha) %*% t(Bindex) %*% Bindex %*% alpha)
@@ -24,7 +27,7 @@ si <- function(delta, formula.mgcv, a.names.vec, sXdat, Bindex, opt = TRUE, verb
 
   b.opt <- bam(formula.mgcv,
                data = sXdat,
-               family=nb(),
+               family=if(identical(family, "gaussian")) stats::gaussian(link = "identity") else nb(),
                discrete = TRUE) ## fit model
   if(verbose) cat(".")
   if (opt)
@@ -46,12 +49,16 @@ si <- function(delta, formula.mgcv, a.names.vec, sXdat, Bindex, opt = TRUE, verb
 #' @param sXdat
 #' @param M
 #' @param verbose
+#' @param family outcome family, \code{"nb"} (default) or \code{"gaussian"}.
 #'
 #' @returns
 #' @export
 #'
 #' @examples
-sim <- function(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose, con.index.init) {
+sim <- function(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose, con.index.init, family = "nb") {
+
+  if(!is.character(family) || length(family) != 1L || is.na(family) ||
+     !family %in% c("nb", "gaussian")) stop("family must be 'nb' or 'gaussian'.")
 
   wl.discrete <- 1 - (0:maxL)/maxL
 
@@ -107,14 +114,14 @@ sim <- function(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose,
     th0 <- rep(1,M-1)
     f0 <- optim(th0, si, formula.mgcv = formula.mgcv.unpen,
                 a.names.vec = a.names.vec,
-                sXdat = sXdat, Bindex = Bindex, verbose = verbose,
+                sXdat = sXdat, Bindex = Bindex, verbose = verbose, family = family,
                 method = method, lower = lower, upper = upper)
 
 
 
     f1 <- optim(f0$par, si, formula.mgcv = formula.mgcv.pen,
                 a.names.vec = a.names.vec,
-                sXdat = sXdat, Bindex = Bindex, verbose = verbose,
+                sXdat = sXdat, Bindex = Bindex, verbose = verbose, family = family,
                 method = method, lower = lower, upper = upper)
 
 
@@ -122,12 +129,12 @@ sim <- function(formula.list, x.names.list, kE, sXdat, Bindex, M, maxL, verbose,
 
     b.opt <- si(delta = delta.est, formula.mgcv = formula.mgcv.pen,
                 a.names.vec = a.names.vec,
-                sXdat = sXdat, Bindex = Bindex, opt = FALSE, verbose = verbose)
+                sXdat = sXdat, Bindex = Bindex, opt = FALSE, verbose = verbose, family = family)
   } else {
     delta.est <- con.index.init
     b.opt <- si(delta = delta.est, formula.mgcv = formula.mgcv.pen,
                 a.names.vec = a.names.vec,
-                sXdat = sXdat, Bindex = Bindex, opt = FALSE, verbose = verbose)
+                sXdat = sXdat, Bindex = Bindex, opt = FALSE, verbose = verbose, family = family)
   }
 
   if(verbose) cat("Single index model: Done! \n")

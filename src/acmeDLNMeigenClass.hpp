@@ -269,6 +269,7 @@ public:
   const Eigen::VectorXd a;
   const Eigen::MatrixXd Bindex;
   const Eigen::VectorXd r; // rank of each smooth
+  const bool gaussian; // false: negative binomial with log link; true: Gaussian with identity link
 
   int n;
   int kw;
@@ -486,9 +487,10 @@ public:
         double log_smoothing_w_,
         Eigen::VectorXd& betaR_,
         Eigen::VectorXd& betaF_,
-        Eigen::VectorXd& logsmoothing_) :
+        Eigen::VectorXd& logsmoothing_,
+        bool gaussian_ = false) :
     y(y_), B_inner_list(B_inner_list_), knots_f(knots_f_), Sw_large(Sw_large_), Sf(Sf_), Dw(Dw_), Xrand(Xrand_), Xfix(Xfix_), Zf(Zf_), Xoffset(Xoffset_), r(r_),
-    K(K_), a(a_), Bindex(Bindex_),
+    K(K_), a(a_), Bindex(Bindex_), gaussian(gaussian_),
     alpha_f(alpha_f_), phi(phi_), con_index_par(con_index_par_), log_theta(log_theta_), log_smoothing_f(log_smoothing_f_), log_smoothing_w(log_smoothing_w_), betaR(betaR_), betaF(betaF_), logsmoothing(logsmoothing_) {
 
       n = y.size(); // sample size
@@ -554,7 +556,8 @@ public:
         Bf_matrix.row(i) = Bf;
         eta(i) = Bf.dot(alpha_f);
         eta_remaining(i) = Xfix.row(i).dot(betaF) + Xrand.row(i).dot(betaR);
-        mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+        mu(i) = gaussian ? eta(i) + eta_remaining(i) + Xoffset(i)
+                         : exp(eta(i) + eta_remaining(i) + Xoffset(i));
       }
 
       // Initialize the derivative components and NegativeLogLikelihood
@@ -593,7 +596,8 @@ public:
 
     for (int i = 0; i < n; i++) {
       eta(i) = Bf_matrix.row(i).dot(alpha_f);
-      mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      mu(i) = gaussian ? eta(i) + eta_remaining(i) + Xoffset(i)
+                         : exp(eta(i) + eta_remaining(i) + Xoffset(i));
     }
   }
 
@@ -616,7 +620,8 @@ public:
       Bf = BsplinevecCon(E(i), knots_f, 4, Zf);
       Bf_matrix.row(i) = Bf;
       eta(i) = Bf.dot(alpha_f);
-      mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      mu(i) = gaussian ? eta(i) + eta_remaining(i) + Xoffset(i)
+                         : exp(eta(i) + eta_remaining(i) + Xoffset(i));
     }
 
     dw_dphi_mat = dw_dphi(); // d alpha_w / d phi
@@ -648,7 +653,8 @@ public:
       Bf = BsplinevecCon(E(i), knots_f, 4, Zf);
       Bf_matrix.row(i) = Bf;
       eta(i) = Bf.dot(alpha_f);
-      mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      mu(i) = gaussian ? eta(i) + eta_remaining(i) + Xoffset(i)
+                         : exp(eta(i) + eta_remaining(i) + Xoffset(i));
     }
 
     dindex_par_dcon_index_par_mat = dindex_par_dcon_index_par();
@@ -663,14 +669,16 @@ public:
     betaF = betaF_;
     for (int i = 0; i < n; i++) {
       eta_remaining(i) = Xfix.row(i).dot(betaF) + Xrand.row(i).dot(betaR);
-      mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      mu(i) = gaussian ? eta(i) + eta_remaining(i) + Xoffset(i)
+                         : exp(eta(i) + eta_remaining(i) + Xoffset(i));
     }
   }
   void setBetaR(const Eigen::VectorXd betaR_) {
     betaR = betaR_;
     for (int i = 0; i < n; i++) {
       eta_remaining(i) = Xfix.row(i).dot(betaF) + Xrand.row(i).dot(betaR);
-      mu(i) = exp(eta(i) + eta_remaining(i) + Xoffset(i));
+      mu(i) = gaussian ? eta(i) + eta_remaining(i) + Xoffset(i)
+                         : exp(eta(i) + eta_remaining(i) + Xoffset(i));
     }
   }
 
@@ -705,8 +713,14 @@ public:
 
     double eta_remaining_i = Xfix.row(i).dot(betaF_i) + Xrand.row(i).dot(betaR_i);
 
-    double mu_i = exp(eta_i + eta_remaining_i + Xoffset(i));
+    double mu_i = gaussian ? eta_i + eta_remaining_i + Xoffset(i)
+                           : exp(eta_i + eta_remaining_i + Xoffset(i));
     double theta_i = exp(log_theta_i);
+    if (gaussian) {
+      double log_p_i = -log_theta_i - 0.5 * log(2.0 * 3.141592653589793238462643383279)
+                       - 0.5 * pow((y(i) - mu_i) / theta_i, 2);
+      return exp(log_p_i);
+    }
     double log_p_i = lgamma(y(i) + theta_i) - lgamma(theta_i) - lgamma(y(i) + 1) -
                                     theta_i * log(1 + mu_i/theta_i) +
                                     y(i)*( eta_i + eta_remaining_i + Xoffset(i) - log_theta_i - log(1 + mu_i/theta_i) );
@@ -744,9 +758,15 @@ public:
 
     double eta_remaining_i = Xfix.row(i).dot(betaF_i) + Xrand.row(i).dot(betaR_i);
 
-    double mu_i = exp(eta_i + eta_remaining_i + Xoffset(i));
+    double mu_i = gaussian ? eta_i + eta_remaining_i + Xoffset(i)
+                           : exp(eta_i + eta_remaining_i + Xoffset(i));
 
     double theta_i = exp(log_theta_i);
+    if (gaussian) {
+      double log_p_i = -log_theta_i - 0.5 * log(2.0 * 3.141592653589793238462643383279)
+                       - 0.5 * pow((y(i) - mu_i) / theta_i, 2);
+      return -log_p_i;
+    }
     double log_p_i = lgamma(y(i) + theta_i) - lgamma(theta_i) - lgamma(y(i) + 1) -
                                     theta_i * log(1 + mu_i/theta_i) +
                                     y(i)*( eta_i + eta_remaining_i + Xoffset(i) - log_theta_i - log(1 + mu_i/theta_i) );
@@ -994,9 +1014,14 @@ public:
 
     double loglik = 0;
     for (int i = 0; i < n; i++) {
-      loglik += lgamma(y(i) + theta) - lgamma(theta) - lgamma(y(i) + 1) -
+      if (gaussian) {
+        loglik += -log_theta - 0.5 * log(2.0 * 3.141592653589793238462643383279)
+                  - 0.5 * pow((y(i) - mu(i)) / theta, 2);
+      } else {
+        loglik += lgamma(y(i) + theta) - lgamma(theta) - lgamma(y(i) + 1) -
                                     theta * log(1 + mu(i)/theta) +
                                     y(i)*( eta(i) + eta_remaining(i) + Xoffset(i) - log_theta - log(1 + mu(i)/theta) );
+      }
     }
 
     // part 1: DLNM
@@ -1027,9 +1052,14 @@ public:
 
     double loglik = 0;
     for (int i = 0; i < n; i++) {
-      loglik += lgamma(y(i) + theta) - lgamma(theta) - lgamma(y(i) + 1) -
+      if (gaussian) {
+        loglik += -log_theta - 0.5 * log(2.0 * 3.141592653589793238462643383279)
+                  - 0.5 * pow((y(i) - mu(i)) / theta, 2);
+      } else {
+        loglik += lgamma(y(i) + theta) - lgamma(theta) - lgamma(y(i) + 1) -
                                     theta * log(1 + mu(i)/theta) +
                                     y(i)*( eta(i) + eta_remaining(i) + Xoffset(i) - log_theta - log(1 + mu(i)/theta) );
+      }
     }
 
     NegLogL_l = -1.0 * loglik; // NEGATIVE log-likelihood
@@ -1199,6 +1229,7 @@ public:
   // 1. density function
   // d log(exponential family density) / d mu
   Eigen::VectorXd dlogdensity_dmu () {
+    if (gaussian) return (y - mu) / (theta * theta);
     Eigen::VectorXd out(n);
     for (int i = 0; i < n; i++) {
       out(i) = y(i) / mu(i) - (theta + y(i)) / (theta + mu(i));
@@ -1207,6 +1238,7 @@ public:
   }
   // d^2 log(exponential family density) / d mu^2
   Eigen::VectorXd d2logdensity_dmudmu () {
+    if (gaussian) return Eigen::VectorXd::Constant(n, -1.0 / (theta * theta));
     Eigen::VectorXd out(n);
     for (int i = 0; i < n; i++) {
       out(i) = - y(i) / pow(mu(i), 2) + (theta + y(i)) / pow(theta + mu(i), 2);
@@ -1215,6 +1247,7 @@ public:
   }
   // d log(exponential family density) / d theta
   double dlogdensity_dtheta () {
+    if (gaussian) return -n / theta + (y - mu).squaredNorm() / (theta * theta * theta);
     double out = 0.0;
     // std::cout << "x" << 3.5 << std::endl;
 
@@ -1226,6 +1259,7 @@ public:
   }
   // d^2 log(exponential family density) / d theta^2
   double d2logdensity_dthetadtheta () {
+    if (gaussian) return n / (theta * theta) - 3.0 * (y - mu).squaredNorm() / pow(theta, 4);
     double out = 0.0;
 
     for (int i = 0; i < n; i++) {
@@ -1235,6 +1269,7 @@ public:
   }
 
   Eigen::VectorXd d2logdensity_dmudtheta () {
+    if (gaussian) return -2.0 * (y - mu) / (theta * theta * theta);
     Eigen::VectorXd out(n);
     for (int i = 0; i < n; i++) {
       out(i) = (y(i) - mu(i)) / pow(theta+mu(i), 2);
@@ -1251,6 +1286,7 @@ public:
   }
   // d mu / d alpha_f
   Eigen::MatrixXd dmu_df () {
+    if (gaussian) return dlogmu_df_mat;
     Eigen::MatrixXd out(n, kE);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_df_mat.row(i) * mu(i);
@@ -1284,6 +1320,7 @@ public:
   }
   // d mu / d alpha_w
   Eigen::MatrixXd dmu_dw () {
+    if (gaussian) return dlogmu_dw_mat;
     Eigen::MatrixXd out(n, kw);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_dw_mat.row(i) * mu(i);
@@ -1296,6 +1333,7 @@ public:
   }
   // d mu / d betaR
   Eigen::MatrixXd dmu_dbetaR () {
+    if (gaussian) return dlogmu_dbetaR_mat;
     Eigen::MatrixXd out(n, kbetaR);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_dbetaR_mat.row(i) * mu(i);
@@ -1304,6 +1342,7 @@ public:
   }
   // d mu / d index_par
   Eigen::MatrixXd dmu_dindex_par () {
+    if (gaussian) return dlogmu_dindex_par_mat;
     Eigen::MatrixXd out(n, mE);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_dindex_par_mat.row(i) * mu(i);
@@ -1316,6 +1355,7 @@ public:
   }
   // d mu / d betaR
   Eigen::MatrixXd dmu_dbetaF () {
+    if (gaussian) return dlogmu_dbetaF_mat;
     Eigen::MatrixXd out(n, kbetaF);
     for (int i = 0; i < n; i++) {
       out.row(i) = dlogmu_dbetaF_mat.row(i) * mu(i);
@@ -1560,12 +1600,18 @@ public:
     return 0.5 * smoothing_w * alpha_w_C.dot(Sw_large * alpha_w_C) - 0.5 * (kw-1-1);
   }
   double gr_log_theta () {
+    if (gaussian) return n - (y - mu).squaredNorm() / (theta * theta);
     return -1.0 * theta * dlogdensity_dtheta_scalar;
   }
 
   Eigen::VectorXd K_log_theta () {
     // out: n * 1. DO NOT FORGET TO TRANSPOSE WHEN USING
     Eigen::VectorXd out(n);
+    if (gaussian) {
+      // K contains log-likelihood scores; gr_log_theta uses negative log-likelihood.
+      for (int i = 0; i < n; i++) out(i) = pow((y(i) - mu(i)) / theta, 2) - 1.0;
+      return out;
+    }
     for (int i = 0; i < n; i++) {
       out(i) = -1.0 * theta * (log_theta - log(theta + mu(i)) + (mu(i) - y(i))/(theta+mu(i)) + lgamma1st(theta+y(i)) - lgamma1st(theta));
     }
@@ -1587,9 +1633,11 @@ public:
   }
 
   double he_log_theta () {
+    if (gaussian) return 2.0 * (y - mu).squaredNorm() / (theta * theta);
     return -1.0 * theta * dlogdensity_dtheta_scalar - theta * theta * d2logdensity_dthetadtheta_scalar;
   }
   double he_log_theta_i (int i) {
+    if (gaussian) return 2.0 * pow((y(i) - mu(i)) / theta, 2);
     double tmp1 = log_theta - log(theta + mu(i)) + (mu(i) - y(i))/(theta+mu(i)) + lgamma1st(theta+y(i)) - lgamma1st(theta);
     double tmp2 = 1/theta - 1/(theta + mu(i)) - (mu(i) - y(i)) / ((theta + mu(i))*(theta + mu(i))) + lgamma2nd(y(i) + theta) - lgamma2nd(theta);
     return -1.0 * theta * tmp1 - theta * theta * tmp2;
@@ -1624,7 +1672,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_df_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_df_mat.row(i));
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_df_mat.row(i));
     }
     return - out1 - out2 + smoothing_f*Sf;
   }
@@ -1636,7 +1684,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_df_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_df_mat.row(i));
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_df_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -1646,7 +1694,8 @@ public:
     Eigen::MatrixXd out2(kE, kE);
 
     out1 = d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_df_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_df_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_df_mat.row(i));
 
     return - out1 - out2;
   }
@@ -1660,7 +1709,7 @@ public:
     Ones.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dbetaR_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaR_mat.row(i).transpose() * dlogmu_dbetaR_mat.row(i));
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaR_mat.row(i).transpose() * dlogmu_dbetaR_mat.row(i));
     }
     int begin = 0;
     for (int i = 0; i < p; i++) {
@@ -1681,7 +1730,7 @@ public:
     Ones.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dbetaR_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaR_mat.row(i).transpose() * dlogmu_dbetaR_mat.row(i));
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaR_mat.row(i).transpose() * dlogmu_dbetaR_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -1691,7 +1740,8 @@ public:
     Eigen::MatrixXd out2(kbetaR, kbetaR);
 
     out1 = d2logdensity_dmudmu_vec(i) * dmu_dbetaR_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaR_mat.row(i).transpose() * dlogmu_dbetaR_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaR_mat.row(i).transpose() * dlogmu_dbetaR_mat.row(i));
 
     return - out1 - out2;
   }
@@ -1703,7 +1753,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dbetaF_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaF_mat.row(i).transpose() * dlogmu_dbetaF_mat.row(i));
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaF_mat.row(i).transpose() * dlogmu_dbetaF_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -1712,7 +1762,8 @@ public:
     Eigen::MatrixXd out1(kbetaF, kbetaF);
     Eigen::MatrixXd out2(kbetaF, kbetaF);
     out1 = d2logdensity_dmudmu_vec(i) * dmu_dbetaF_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaF_mat.row(i).transpose() * dlogmu_dbetaF_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dbetaF_mat.row(i).transpose() * dlogmu_dbetaF_mat.row(i));
 
     return - out1 - out2;
   }
@@ -1724,7 +1775,11 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dw_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i));
+      if (gaussian) {
+        out2 += dlogdensity_dmu_vec(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i);
+      } else {
+        out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i));
+      }
     }
     return - out1 - out2 + smoothing_w*Sw_large;
   }
@@ -1736,7 +1791,11 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dw_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i));
+      if (gaussian) {
+        out2 += dlogdensity_dmu_vec(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i);
+      } else {
+        out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i));
+      }
     }
     return - out1 - out2 ;
   }
@@ -1746,7 +1805,11 @@ public:
     Eigen::MatrixXd out1(kw, kw);
     Eigen::MatrixXd out2(kw, kw);
     out1 = d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dw_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i));
+    if (gaussian) {
+      out2 = dlogdensity_dmu_vec(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i);
+    } else {
+      out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i) * (BsplinevecCon2nd(E(i), knots_f, 4, Zf).dot(alpha_f)) * B_inner.row(i).transpose() * B_inner.row(i));
+    }
     return - out1 - out2 ;
   }
 
@@ -1803,7 +1866,11 @@ public:
       }
 
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dindex_par_mat.row(i).transpose() * dmu_dindex_par_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dindex_par_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i) * out_tmp);
+      if (gaussian) {
+        out2 += dlogdensity_dmu_vec(i) * out_tmp;
+      } else {
+        out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dindex_par_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i) * out_tmp);
+      }
     }
 
     return - out1 - out2;
@@ -1827,7 +1894,11 @@ public:
     }
 
     out1 = d2logdensity_dmudmu_vec(i) * dmu_dindex_par_mat.row(i).transpose() * dmu_dindex_par_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dindex_par_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i) * out_tmp);
+    if (gaussian) {
+      out2 = dlogdensity_dmu_vec(i) * out_tmp;
+    } else {
+      out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dindex_par_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i) * out_tmp);
+    }
 
 
     return - out1 - out2;
@@ -1863,7 +1934,11 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dw_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i)*BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i));
+      if (gaussian) {
+        out2 += dlogdensity_dmu_vec(i) * BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i);
+      } else {
+        out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i)*BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i));
+      }
     }
     return - out1 - out2;
   }
@@ -1872,7 +1947,11 @@ public:
     Eigen::MatrixXd out1(kE, kw);
     Eigen::MatrixXd out2(kE, kw);
     out1 = d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dw_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i)*BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i));
+    if (gaussian) {
+      out2 = dlogdensity_dmu_vec(i) * BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i);
+    } else {
+      out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dw_mat.row(i) + mu(i)*BsplinevecCon1st(E(i), knots_f, 4, Zf) * B_inner.row(i));
+    }
     return - out1 - out2;
   }
 
@@ -1902,7 +1981,11 @@ public:
         out_mat.col(jj) = Bf1st * (B_inner_list.at(jj).row(i).dot(alpha_w_C));
       }
       out1 += d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dindex_par_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+      if (gaussian) {
+        out2 += dlogdensity_dmu_vec(i) * out_mat;
+      } else {
+        out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+      }
     }
     return - out1 - out2;
   }
@@ -1919,7 +2002,11 @@ public:
       out_mat.col(jj) = Bf1st * (B_inner_list.at(jj).row(i).dot(alpha_w_C));
     }
     out1 = d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dindex_par_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+    if (gaussian) {
+      out2 = dlogdensity_dmu_vec(i) * out_mat;
+    } else {
+      out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_df_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+    }
 
     return - out1 - out2;
   }
@@ -1943,7 +2030,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
     }
     return - out1 - out2;
   }
@@ -1953,7 +2040,8 @@ public:
     Eigen::MatrixXd out2(kE, kbetaF);
 
     out1 = d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
+    if (gaussian) out2.setZero();
+    else out2 = dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
 
     return - out1 - out2;
   }
@@ -1965,7 +2053,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
     }
     return - out1 - out2;
   }
@@ -1975,7 +2063,8 @@ public:
     Eigen::MatrixXd out2(kE, kbetaR);
 
     out1 = d2logdensity_dmudmu_vec(i) * dmu_df_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
+    if (gaussian) out2.setZero();
+    else out2 = dlogdensity_dmu_vec(i) * dlogmu_df_mat.row(i).transpose() * dmu_dbetaR_mat.row(i);
 
     return - out1 - out2;
   }
@@ -1987,7 +2076,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += dw_dphi_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
-      out2 += dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
+      if (!gaussian) out2 += dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -1997,7 +2086,8 @@ public:
     Eigen::MatrixXd out2(kwopt, kbetaR);
 
     out1 = dw_dphi_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
-    out2 = dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
 
     return - out1 - out2;
   }
@@ -2009,7 +2099,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += dw_dphi_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
-      out2 += dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
+      if (!gaussian) out2 += dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -2019,7 +2109,8 @@ public:
     Eigen::MatrixXd out2(kwopt, kbetaF);
 
     out1 = dw_dphi_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
-    out2 = dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dw_dphi_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dw_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
 
     return - out1 - out2;
   }
@@ -2031,7 +2122,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += dindex_par_dcon_index_par_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dindex_par_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
-      out2 += dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
+      if (!gaussian) out2 += dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -2041,7 +2132,8 @@ public:
     Eigen::MatrixXd out2(mE-1, kbetaF);
 
     out1 = dindex_par_dcon_index_par_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dindex_par_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
-    out2 = dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaF_mat.row(i));
 
     return - out1 - out2;
   }
@@ -2055,7 +2147,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dbetaR_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * dlogmu_dbetaR_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
+      if (!gaussian) out2 += dlogdensity_dmu_vec(i) * dlogmu_dbetaR_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
     }
     return - out1 - out2;
   }
@@ -2065,7 +2157,8 @@ public:
     Eigen::MatrixXd out2(kbetaR, kbetaF);
 
     out1 = d2logdensity_dmudmu_vec(i) * dmu_dbetaR_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * dlogmu_dbetaR_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
+    if (gaussian) out2.setZero();
+    else out2 = dlogdensity_dmu_vec(i) * dlogmu_dbetaR_mat.row(i).transpose() * dmu_dbetaF_mat.row(i);
 
     return - out1 - out2;
   }
@@ -2087,7 +2180,11 @@ public:
         out_mat.col(jj) = B_inner_list.at(jj).row(i).transpose() * (Bf1st.dot(alpha_f)) + B_inner.row(i).transpose() * (Bf2nd.dot(alpha_f)) * (B_inner_list.at(jj).row(i).dot(alpha_w_C));
       }
       out1 += d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dindex_par_mat.row(i);
-      out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+      if (gaussian) {
+        out2 += dlogdensity_dmu_vec(i) * out_mat;
+      } else {
+        out2 += dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+      }
     }
     return - out1 - out2;
   }
@@ -2106,7 +2203,11 @@ public:
       out_mat.col(jj) = B_inner_list.at(jj).row(i).transpose() * (Bf1st.dot(alpha_f)) + B_inner.row(i).transpose() * (Bf2nd.dot(alpha_f)) * (B_inner_list.at(jj).row(i).dot(alpha_w_C));
     }
     out1 = d2logdensity_dmudmu_vec(i) * dmu_dw_mat.row(i).transpose() * dmu_dindex_par_mat.row(i);
-    out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+    if (gaussian) {
+      out2 = dlogdensity_dmu_vec(i) * out_mat;
+    } else {
+      out2 = dlogdensity_dmu_vec(i) * (mu(i) * dlogmu_dw_mat.row(i).transpose() * dlogmu_dindex_par_mat.row(i) + mu(i)*out_mat);
+    }
 
     return - out1 - out2;
   }
@@ -2139,7 +2240,7 @@ public:
     out2.setZero();
     for (int i = 0; i < n; i++) {
       out1 += dindex_par_dcon_index_par_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dindex_par_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
-      out2 += dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
+      if (!gaussian) out2 += dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
     }
     return - out1 - out2;
   }
@@ -2149,7 +2250,8 @@ public:
     Eigen::MatrixXd out2(mE-1, kbetaR);
 
     out1 = dindex_par_dcon_index_par_mat.transpose() * (d2logdensity_dmudmu_vec(i) * dmu_dindex_par_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
-    out2 = dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
+    if (gaussian) out2.setZero();
+    else out2 = dindex_par_dcon_index_par_mat.transpose() * (dlogdensity_dmu_vec(i) * dlogmu_dindex_par_mat.row(i).transpose() * dmu_dbetaR_mat.row(i));
 
     return - out1 - out2;
   }

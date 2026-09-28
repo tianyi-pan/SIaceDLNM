@@ -2,11 +2,16 @@
 #'
 #' @param object object of class \code{acmeDLNM_fit}.
 #' @param verbose whether to print messages during the process, default \code{FALSE}.
+#' @details Rate ratios are only defined here for negative binomial fits with
+#'   a log link. This method does not support Gaussian fits with an identity link.
 #'
 #' @return
 #' @importFrom mgcv s
 #' @exportS3Method mDLNM::RateRatio
 RateRatio.acmeDLNM_fit <- function(object, x0, x1, verbose = FALSE, ...) {
+  if(identical(object$family, "gaussian")) {
+    stop("RateRatio() is not available for Gaussian fits with an identity link.")
+  }
   ## point estimate
   pc <- object$data$pc
   alpha_w <- object$point$alpha_w
