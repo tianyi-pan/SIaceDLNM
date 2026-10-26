@@ -4,7 +4,8 @@
 #' @param formula the formula for the effect of exposure at time t regarding the
 #'   exposure history. Use sX() for the distributed lag term. For example y ~
 #'   sX(t, x).
-#' @param smooth the formula for the other smooth functions. The smooths are
+#' @param smooth the formula for the other smooth functions. Use NULL for no
+#' additional smooth terms; the DLNM exposure and lag penalties are retained. The smooths are
 #'   specified by mgcv::s. For example ~ s(z). Note also that the Gaussian
 #'   random effect models are accommodated, by setting s(bs = "re").
 #' @param unpen.smooth the formula for the other unpenalized smooth functions.
@@ -523,6 +524,9 @@ SIaceDLNM <- function(formula,
     model.choice = "with.smooth"
   } else{
     model.choice = "without.smooth"
+    Xrand <- matrix(numeric(0), nrow = nrow(sXdat), ncol = 0)
+    Xfix <- matrix(numeric(0), nrow = nrow(sXdat), ncol = 0)
+    r <- m <- numeric(0)
   }
 
 
@@ -672,9 +676,8 @@ SIaceDLNM <- function(formula,
   ## the yielded index.init is c(1,1,1)
 
   ## A list to store the optimization results at given smoothing log_theta.given, log_smoothing_f.given, log_smoothing_w.given.
-  if(model.choice == "with.smooth") {
-    betaR.init.default <- rep(0,ncol(Xrand))
-    LAMLenv <- list(par = NULL,
+  betaR.init.default <- rep(0,ncol(Xrand))
+  LAMLenv <- list(par = NULL,
                     fn = NULL,
                     gr = NULL,
                     mod = list(phi.mod = phi.init.default, alpha_f.mod = alpha_f.init.default,
@@ -683,15 +686,6 @@ SIaceDLNM <- function(formula,
                               delta.mod = delta.init.default),
                     iter = 0,
                     PLg = 0)
-  } else {
-    # LAMLenv <- list(par = NULL,
-    #             fn = NULL,
-    #             gr = NULL,
-    #             mod = list(phi.mod = phi.init.default, alpha_f.mod = alpha_f.init.default,
-    #                         betaF.mod = betaF.init.default))
-    cat("NOT supported. TODO")
-    return(0)
-  }
 
   ## upper bound
   if(model.choice == "with.smooth") {
@@ -706,7 +700,7 @@ SIaceDLNM <- function(formula,
     log_theta.given <- par[1]
     log_smoothing_f.given <- par[2]
     log_smoothing_w.given <- par[3]
-    if(model.choice == "with.smooth") logsmoothing.given <- par[-(1:3)]
+    logsmoothing.given <- par[-(1:3)]
     ## Inner opt
     if(is.null(LAMLenv$par) | !all(par == LAMLenv$par)) {
       ## Inner opt
@@ -730,9 +724,8 @@ SIaceDLNM <- function(formula,
         }
       }
 
-      if(model.choice == "with.smooth"){
-        betaR.init <- LAMLenv$mod$betaR.mod
-        if(any(is.nan(betaR.init))) betaR.init <- betaR.init.default
+      betaR.init <- LAMLenv$mod$betaR.mod
+      if(any(is.nan(betaR.init))) betaR.init <- betaR.init.default
 
         LAML.results <- acmeDLNMopt(mod.address,
                                     ad.address,
@@ -752,9 +745,6 @@ SIaceDLNM <- function(formula,
         LAMLenv$gr <<- LAML.results$LAML.gradient
         LAMLenv$iter <<- LAMLenv$iter + 1
         LAMLenv$PLg <<- LAML.results$PLg
-      } else {
-        cat("NOT supported. TODO")
-      }
 
     }
   }
@@ -763,7 +753,7 @@ SIaceDLNM <- function(formula,
     log_theta.given <- par[1]
     log_smoothing_f.given <- par[2]
     log_smoothing_w.given <- par[3]
-    if(model.choice == "with.smooth") logsmoothing.given <- par[-(1:3)]
+    logsmoothing.given <- par[-(1:3)]
 
     ## Inner opt
     phi.init <- LAMLenv$mod$phi.mod
@@ -775,9 +765,8 @@ SIaceDLNM <- function(formula,
     delta.init <- LAMLenv$mod$delta.mod
     if(any(is.nan(delta.init))) delta.init <- delta.init.default
 
-    if(model.choice == "with.smooth"){
-      betaR.init <- LAMLenv$mod$betaR.mod
-      if(any(is.nan(betaR.init))) betaR.init <- betaR.init.default
+    betaR.init <- LAMLenv$mod$betaR.mod
+    if(any(is.nan(betaR.init))) betaR.init <- betaR.init.default
 
       mod.build <- acmeDLNMbuild(y, B_inner, SSf$knots, SwI_large, SfI, Dw,
                                 Xrand, Xfix, Zfnew, Xoffset, r,
@@ -789,7 +778,6 @@ SIaceDLNM <- function(formula,
                                 log_theta.given, log_smoothing_f.given, log_smoothing_w.given,
                                 betaR.init, betaF.init, logsmoothing.given,
                                 gaussian = gaussian)
-    }
     if(verbose) cat("Done.")
     mod.build
   }
@@ -1007,33 +995,19 @@ SIaceDLNM <- function(formula,
     # We build the design matrix and penalty matrix by hand
     out$smooth$fE <- SSf
   }
-  if(model.choice == "with.smooth") {
-    log_smoothing.opt <- LAMLenv$par[-(1:3)]
-    betaR.opt <- LAMLenv$mod$betaR.mod
-    out$point$betaR = betaR.opt
-    out$point$log_smoothing = log_smoothing.opt
-  }
+  log_smoothing.opt <- LAMLenv$par[-(1:3)]
+  betaR.opt <- LAMLenv$mod$betaR.mod
+  out$point$betaR = betaR.opt
+  out$point$log_smoothing = log_smoothing.opt
 
   ## CI
   if(verbose) {
     cat("Start sampling for CI ... \n")
     start <- Sys.time()
   }
-  if(model.choice == "with.smooth") {
-    sampled <- acmeDLNMCI(mod.address,
+  sampled <- acmeDLNMCI(mod.address,
                          CI.R, CI.seed,
                          eta, delta.method, verbose)
-  } else {
-    # sampled <- acmeDLNMCI_nosmooth(y, B_inner, SSf$knots, SwI, SfI, Dw,
-    #                               Xfix, Zfnew, Xoffset,
-    #                                  LAMLenv$mod$alpha_f.mod,
-    #                                   phi.opt,
-    #                                   log_theta.opt, log_smoothing_f.opt, log_smoothing_w.opt,
-    #                                   betaF.opt,
-    #                                   CI.R, CI.seed,
-    #                                   eta, delta.method, verbose)
-    cat("NOT supported. TODO")
-  }
 
   B_inner_sum <- Reduce("+", mapply("*", B_inner, index.opt, SIMPLIFY = FALSE))
   E <- B_inner_sum %*% out$point$alpha_w
@@ -1127,6 +1101,10 @@ SIaceDLNM <- function(formula,
     out$data$r = r
     out$data$m = m
     out$smooth$others = SS
+  } else {
+    out$data$Xrand = Xrand
+    out$data$r = r
+    out$data$m = m
   }
   # if(!is.null(unpen.smooth)) {
   #   out$smooth$unpen.smooth = unpen.SS

@@ -51,7 +51,8 @@ SIaceDLNM(
 exposure history. Use sX() for the distributed lag term. For example y ~
 sX(t, x).}
 
-\item{smooth}{the formula for the other smooth functions. The smooths are
+\item{smooth}{the formula for the other smooth functions. Use NULL for no
+additional smooth terms; the DLNM exposure and lag penalties are retained. The smooths are
 specified by mgcv::s. For example ~ s(z). Note also that the Gaussian
 random effect models are accommodated, by setting s(bs = "re").}
 
