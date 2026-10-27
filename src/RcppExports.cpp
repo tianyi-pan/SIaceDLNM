@@ -112,6 +112,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// SLacmeDLNM
+List SLacmeDLNM(SEXP ptr, SEXP ptr_cf, bool verbose, bool aic, int nthreads, Rcpp::Nullable<Rcpp::NumericMatrix> coef_samples);
+RcppExport SEXP _SIaceDLNM_SLacmeDLNM(SEXP ptrSEXP, SEXP ptr_cfSEXP, SEXP verboseSEXP, SEXP aicSEXP, SEXP nthreadsSEXP, SEXP coef_samplesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type ptr_cf(ptr_cfSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    Rcpp::traits::input_parameter< bool >::type aic(aicSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type coef_samples(coef_samplesSEXP);
+    rcpp_result_gen = Rcpp::wrap(SLacmeDLNM(ptr, ptr_cf, verbose, aic, nthreads, coef_samples));
+    return rcpp_result_gen;
+END_RCPP
+}
 // BsplinevecCon1st
 Eigen::VectorXd BsplinevecCon1st(double x, const Eigen::VectorXd& t, int p, Eigen::MatrixXd Z);
 RcppExport SEXP _SIaceDLNM_BsplinevecCon1st(SEXP xSEXP, SEXP tSEXP, SEXP pSEXP, SEXP ZSEXP) {
@@ -350,6 +366,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SIaceDLNM_acmeDLNMCI", (DL_FUNC) &_SIaceDLNM_acmeDLNMCI, 7},
     {"_SIaceDLNM_ConditionalAICacmeDLNM", (DL_FUNC) &_SIaceDLNM_ConditionalAICacmeDLNM, 4},
     {"_SIaceDLNM_NCVacmeDLNM", (DL_FUNC) &_SIaceDLNM_NCVacmeDLNM, 4},
+    {"_SIaceDLNM_SLacmeDLNM", (DL_FUNC) &_SIaceDLNM_SLacmeDLNM, 6},
     {"_SIaceDLNM_BsplinevecCon1st", (DL_FUNC) &_SIaceDLNM_BsplinevecCon1st, 4},
     {"_SIaceDLNM_BsplinevecCon2nd", (DL_FUNC) &_SIaceDLNM_BsplinevecCon2nd, 4},
     {"_SIaceDLNM_knotindex", (DL_FUNC) &_SIaceDLNM_knotindex, 2},

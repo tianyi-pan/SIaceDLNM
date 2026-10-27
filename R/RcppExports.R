@@ -21,6 +21,10 @@ NCVacmeDLNM <- function(ptr, nei_list, verbose = FALSE, nthreads = 1L) {
     .Call(`_SIaceDLNM_NCVacmeDLNM`, ptr, nei_list, verbose, nthreads)
 }
 
+SLacmeDLNM <- function(ptr, ptr_cf, verbose = FALSE, aic = FALSE, nthreads = 1L, coef_samples = NULL) {
+    .Call(`_SIaceDLNM_SLacmeDLNM`, ptr, ptr_cf, verbose, aic, nthreads, coef_samples)
+}
+
 BsplinevecCon1st <- function(x, t, p, Z) {
     .Call(`_SIaceDLNM_BsplinevecCon1st`, x, t, p, Z)
 }

@@ -4,7 +4,8 @@
 \alias{predict.acmeDLNM_fit}
 \title{Title Obtain predictions from the fitted model by acmeDLNM}
 \usage{
-\method{predict}{acmeDLNM_fit}(object, dat, CI.seed = 123, CI = 0.95, ...)
+\method{predict}{acmeDLNM_fit}(object, dat, CI.seed = 123, CI = 0.95,
+  .build.only = FALSE, ...)
 }
 \arguments{
 \item{object}{object of class \code{acmeDLNM_fit}.}
@@ -14,6 +15,9 @@
 \item{CI.seed}{random seed for sampling, default \code{123}.}
 
 \item{CI}{confidence level, default \code{0.95}.}
+
+\item{.build.only}{Internal use by \code{SLdata()}: return the reconstructed
+model without sampling predictions.}
 
 \item{...}{}
 }
