@@ -1673,7 +1673,7 @@ List SLacmeDLNM(SEXP ptr, SEXP ptr_cf, bool verbose = false, bool aic = false, i
   Eigen::MatrixXd Xrand_cf = cf->getXrand();
   Eigen::VectorXd offset_cf = cf->getXoffset();
 
-  auto mean_i = [&](const Eigen::VectorXd& coef, int i, bool intervention) {
+  auto eta_i = [&](const Eigen::VectorXd& coef, int i, bool intervention) {
     const std::vector<Eigen::MatrixXd>& B = intervention ? B_inner_cf : B_inner;
     const Eigen::MatrixXd& XF = intervention ? Xfix_cf : Xfix;
     const Eigen::MatrixXd& XR = intervention ? Xrand_cf : Xrand;
@@ -1692,17 +1692,21 @@ List SLacmeDLNM(SEXP ptr, SEXP ptr_cf, bool verbose = false, bool aic = false, i
     double eta = BsplinevecCon(E, knots_f, 4, Zf).dot(coef.head(kE));
     eta += XR.row(i).dot(coef.segment(kE + kwopt + mE - 1, kbetaR));
     eta += XF.row(i).dot(coef.tail(kbetaF)) + off(i);
-    return exp(eta);
+    return eta;
+  };
+
+  auto log_sum_exp = [](const Eigen::VectorXd& eta) {
+    double m = eta.maxCoeff();
+    return m + std::log((eta.array() - m).exp().sum());
   };
 
   auto delta = [&](const Eigen::VectorXd& coef) {
-    double baseline = 0.0;
-    double intervention = 0.0;
+    Eigen::VectorXd eta_obs(n), eta_cf(n);
     for(int r = 0; r < n; r++) {
-      baseline += mean_i(coef, r, false);
-      intervention += mean_i(coef, r, true);
+      eta_obs(r) = eta_i(coef, r, false);
+      eta_cf(r) = eta_i(coef, r, true);
     }
-    return intervention / baseline;
+    return std::exp(log_sum_exp(eta_cf) - log_sum_exp(eta_obs));
   };
 
   if(aic) {
@@ -1801,7 +1805,7 @@ List SLacmeDLNM(SEXP ptr, SEXP ptr_cf, bool verbose = false, bool aic = false, i
         Eigen::MatrixXd Hi = local_model.prepare_NCV(deleted).topLeftCorner(q, q);
         Eigen::MatrixXd Hminus = H - Hi;
         Eigen::VectorXd beta_i = beta - Hminus.completeOrthogonalDecomposition().solve(score.col(i));
-        mu_loo(i) = mean_i(beta_i, i, false);
+        mu_loo(i) = exp(eta_i(beta_i, i, false));
         delta_loo(i) = delta(beta_i);
 
         for(int j = i + 1; j < n; j++) {
@@ -1809,8 +1813,8 @@ List SLacmeDLNM(SEXP ptr, SEXP ptr_cf, bool verbose = false, bool aic = false, i
           Eigen::MatrixXd Hj = local_model.prepare_NCV(deleted).topLeftCorner(q, q);
           Hminus = H - Hi - Hj;
           Eigen::VectorXd beta_ij = beta - Hminus.completeOrthogonalDecomposition().solve(score.col(i) + score.col(j));
-          mu_lto(i, j) = mean_i(beta_ij, j, false);
-          mu_lto(j, i) = mean_i(beta_ij, i, false);
+          mu_lto(i, j) = exp(eta_i(beta_ij, j, false));
+          mu_lto(j, i) = exp(eta_i(beta_ij, i, false));
         }
       }
     }
