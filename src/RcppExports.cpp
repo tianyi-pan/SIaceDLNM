@@ -128,6 +128,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// SLinit
+List SLinit(List data, IntegerVector fold, Nullable<List> cache);
+RcppExport SEXP _SIaceDLNM_SLinit(SEXP dataSEXP, SEXP foldSEXP, SEXP cacheSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type fold(foldSEXP);
+    Rcpp::traits::input_parameter< Nullable<List> >::type cache(cacheSEXP);
+    rcpp_result_gen = Rcpp::wrap(SLinit(data, fold, cache));
+    return rcpp_result_gen;
+END_RCPP
+}
+// SLdelete
+List SLdelete(SEXP ptr, int i);
+RcppExport SEXP _SIaceDLNM_SLdelete(SEXP ptrSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(SLdelete(ptr, i));
+    return rcpp_result_gen;
+END_RCPP
+}
 // BsplinevecCon1st
 Eigen::VectorXd BsplinevecCon1st(double x, const Eigen::VectorXd& t, int p, Eigen::MatrixXd Z);
 RcppExport SEXP _SIaceDLNM_BsplinevecCon1st(SEXP xSEXP, SEXP tSEXP, SEXP pSEXP, SEXP ZSEXP) {
@@ -367,6 +392,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SIaceDLNM_ConditionalAICacmeDLNM", (DL_FUNC) &_SIaceDLNM_ConditionalAICacmeDLNM, 4},
     {"_SIaceDLNM_NCVacmeDLNM", (DL_FUNC) &_SIaceDLNM_NCVacmeDLNM, 4},
     {"_SIaceDLNM_SLacmeDLNM", (DL_FUNC) &_SIaceDLNM_SLacmeDLNM, 6},
+    {"_SIaceDLNM_SLinit", (DL_FUNC) &_SIaceDLNM_SLinit, 3},
+    {"_SIaceDLNM_SLdelete", (DL_FUNC) &_SIaceDLNM_SLdelete, 2},
     {"_SIaceDLNM_BsplinevecCon1st", (DL_FUNC) &_SIaceDLNM_BsplinevecCon1st, 4},
     {"_SIaceDLNM_BsplinevecCon2nd", (DL_FUNC) &_SIaceDLNM_BsplinevecCon2nd, 4},
     {"_SIaceDLNM_knotindex", (DL_FUNC) &_SIaceDLNM_knotindex, 2},

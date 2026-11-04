@@ -6,8 +6,8 @@
 #' @param verbose Whether to print progress, default \code{FALSE}.
 #' @param AIC.only Prepare singleton AIC quantities instead of cross-validation
 #'   predicted means. Used by \code{mDLNM::AICdata()}.
-#' @param nthreads Number of threads for deletion calculations, default \code{1}.
-#'   Uses OpenMP for parallel calculation.
+#' @param nthreads Number of OpenMP threads for AIC deletion calculations,
+#'   default \code{1}. SL jackknife workers are set in \code{SuperLearner()}.
 #' @param ... Unused; additional arguments are rejected.
 #' @exportS3Method mDLNM::SLdata
 SLdata.acmeDLNM_fit <- function(object, dat.c, verbose = FALSE,
@@ -51,8 +51,13 @@ SLdata.acmeDLNM_fit <- function(object, dat.c, verbose = FALSE,
                 estimand = "ratio"))
   }
 
+  out$dat <- dat[c("y", "B_inner", "knots_f", "SwI_large", "SfI", "Dw",
+                   "Xrand", "Xfix", "Zf", "offset", "r", "K", "a", "Bindex")]
+  out$dat$Zf <- dat$Zf %*% dat$Ufpen
+  out$dat$offset <- dat$offset$Xoffset
+  out$point <- point[c("log_theta", "log_smoothing_f", "log_smoothing_w", "log_smoothing")]
+  if(verbose) cat("Super Learner model preparation complete.\n")
   return(list(y = dat$y, row.id = rownames(object$modeldata), theta = theta,
-              mu.loo = as.vector(out$mu.loo), mu.lto = out$mu.lto,
-              delta = out$delta, delta.loo = as.vector(out$delta.loo),
+              delta = out$delta, data = out, package = "SIaceDLNM",
               estimand = "ratio"))
 }

@@ -24,16 +24,15 @@ and full exposure histories, on the predictor scale used by \code{predict()}.}
 \item{AIC.only}{Prepare singleton AIC quantities instead of cross-validation
 predicted means. Used by \code{mDLNM::AICdata()}.}
 
-\item{nthreads}{Number of threads for deletion calculations, default \code{1}.
-Uses OpenMP for parallel calculation.}
+\item{nthreads}{Number of OpenMP threads for AIC deletion calculations, default \code{1}.
+SL jackknife workers are set in \code{SuperLearner()}.}
 
 \item{...}{Unused; additional arguments are rejected.}
 }
 \value{
-A list with outcomes, row identifiers, dispersion, leave-one-out means
-  (\code{mu.loo}), leave-two-out means (\code{mu.lto}; outer deletion in rows,
-  validation observation in columns), and full-data and delete-one mortality
-  ratios.
+A list with outcomes, row identifiers, dispersion, the full-data mortality
+  ratio (\code{delta}), portable model preparation (\code{data}), the package
+  name, and \code{estimand = "ratio"}. No complete leave-two-out matrix is stored.
   In AIC mode, predicted means are replaced by \code{aic}, \code{aic.loo}, and
   \code{variance}. The two AIC columns are \code{AIC_conventional} and
   \code{AIC_cAIC}.
@@ -49,8 +48,8 @@ Smoothing parameters and dispersion are held at their fitted values.
   The estimand is sum(mu_counterfactual) / sum(mu_baseline), evaluated at the
   point coefficients, and \code{estimand} is \code{"ratio"}. Counterfactual
   preparation reuses \code{predict()} without drawing coefficient samples.
-  Pairwise calculation and storage are quadratic in the number of fitted
-  observations. With \code{AIC.only = TRUE}, no pair calculations are made.
+  Cross-validation folds and streamed delete-one calculations are handled by
+  \code{SuperLearner()}. With \code{AIC.only = TRUE}, no pair calculations are made.
   Both existing conditional AIC definitions are recomputed on each reduced
   fitting sample. The model-specific variance is the sample variance of
   mortality ratios evaluated using the stored coefficient draws in

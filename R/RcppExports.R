@@ -25,6 +25,14 @@ SLacmeDLNM <- function(ptr, ptr_cf, verbose = FALSE, aic = FALSE, nthreads = 1L,
     .Call(`_SIaceDLNM_SLacmeDLNM`, ptr, ptr_cf, verbose, aic, nthreads, coef_samples)
 }
 
+SLinit <- function(data, fold, cache = NULL) {
+    .Call(`_SIaceDLNM_SLinit`, data, fold, cache)
+}
+
+SLdelete <- function(ptr, i) {
+    .Call(`_SIaceDLNM_SLdelete`, ptr, i)
+}
+
 BsplinevecCon1st <- function(x, t, p, Z) {
     .Call(`_SIaceDLNM_BsplinevecCon1st`, x, t, p, Z)
 }
