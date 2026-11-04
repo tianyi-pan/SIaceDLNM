@@ -1752,33 +1752,39 @@ List SLacmeDLNM(SEXP ptr, SEXP ptr_cf, bool verbose = false, bool aic = false, i
     }
     Eigen::VectorXd delta_loo(n);
     Eigen::MatrixXd aic_loo(n, 2);
-    for(int start = 0; start < n; start += 100) {
-      Rcpp::checkUserInterrupt();
-      int end = std::min(start + 100, n);
+    Rcpp::checkUserInterrupt();
+    #ifdef _OPENMP
+      #pragma omp parallel num_threads(nthreads) if(nthreads > 1)
+    #endif
+    {
+      Model local_model(modelobj), local_eval(modelobj);
+      Eigen::VectorXd nei(1);
       #ifdef _OPENMP
-        #pragma omp parallel num_threads(nthreads) if(nthreads > 1)
+        #pragma omp for schedule(static)
       #endif
-      {
-        Model local_model(modelobj), local_eval(modelobj);
-        Eigen::VectorXd nei(1);
-        #ifdef _OPENMP
-          #pragma omp for schedule(static, 1)
-        #endif
-        for(int i = start; i < end; i++) {
-          nei(0) = i + 1;
-          Eigen::MatrixXd Hi = local_model.prepare_NCV(nei).topLeftCorner(q, q);
-          Eigen::VectorXd beta_i = beta - (H - Hi).completeOrthogonalDecomposition().solve(score.col(i));
-          delta_loo(i) = delta(beta_i);
-          local_eval.setAlphaF(beta_i.head(kE));
-          local_eval.setPhi(beta_i.segment(kE, kwopt));
-          local_eval.setCon_Index_Par(beta_i.segment(kE + kwopt, mE - 1));
-          local_eval.setBetaR(beta_i.segment(kE + kwopt + mE - 1, kbetaR));
-          local_eval.setBetaF(beta_i.tail(kbetaF));
-          aic_loo.row(i) = criterion(local_eval, i).transpose();
+      for(int i = 0; i < n; i++) {
+        nei(0) = i + 1;
+        Eigen::MatrixXd Hi = local_model.prepare_NCV(nei).topLeftCorner(q, q);
+        Eigen::VectorXd beta_i = beta - (H - Hi).completeOrthogonalDecomposition().solve(score.col(i));
+        delta_loo(i) = delta(beta_i);
+        local_eval.setAlphaF(beta_i.head(kE));
+        local_eval.setPhi(beta_i.segment(kE, kwopt));
+        local_eval.setCon_Index_Par(beta_i.segment(kE + kwopt, mE - 1));
+        local_eval.setBetaR(beta_i.segment(kE + kwopt + mE - 1, kbetaR));
+        local_eval.setBetaF(beta_i.tail(kbetaF));
+        aic_loo.row(i) = criterion(local_eval, i).transpose();
+        if(verbose && (i + 1) % 100 == 0) {
+          #ifdef _OPENMP
+            #pragma omp critical
+          #endif
+          {
+            std::cout << "AIC deletion " << i + 1 << " / " << n << std::endl;
+          }
         }
       }
-      if(verbose) Rcpp::Rcout << "AIC deletion " << end << " / " << n << "\n";
     }
+    Rcpp::checkUserInterrupt();
+    if(verbose) Rcpp::Rcout << "AIC deletion " << n << " / " << n << "\n";
     return List::create(Named("aic") = aic_full, Named("aic.loo") = aic_loo,
                         Named("delta") = delta(beta), Named("delta.loo") = delta_loo,
                         Named("delta.sample") = delta_sample);
