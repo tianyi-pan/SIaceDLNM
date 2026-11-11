@@ -25,7 +25,7 @@ and full exposure histories, on the predictor scale used by \code{predict()}.}
 predicted means. Used by \code{mDLNM::AICdata()}.}
 
 \item{nthreads}{Number of OpenMP threads for AIC deletion calculations, default \code{1}.
-SL jackknife workers are set in \code{SuperLearner()}.}
+SL threads are set in \code{SuperLearner(nthreads = ...)}.}
 
 \item{...}{Unused; additional arguments are rejected.}
 }

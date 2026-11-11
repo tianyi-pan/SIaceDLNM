@@ -7,7 +7,7 @@
 #' @param AIC.only Prepare singleton AIC quantities instead of cross-validation
 #'   predicted means. Used by \code{mDLNM::AICdata()}.
 #' @param nthreads Number of OpenMP threads for AIC deletion calculations,
-#'   default \code{1}. SL jackknife workers are set in \code{SuperLearner()}.
+#'   default \code{1}. SL threads are set in \code{SuperLearner(nthreads = ...)}.
 #' @param ... Unused; additional arguments are rejected.
 #' @exportS3Method mDLNM::SLdata
 SLdata.acmeDLNM_fit <- function(object, dat.c, verbose = FALSE,
